@@ -1,0 +1,38 @@
+h3 {
+    margin: 0;
+}
+
+.category-list {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.category-list label:hover { 
+    font-weight: bold;
+    cursor: pointer;
+}
+.category-label-checkbox {
+    display: flex;
+}
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+.category-item p { margin: 0;}
+
+
+
+.server-status-response {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.server-status-connected {
+    color: green;
+}
+.server-status-notConnected {
+    color: red;
+}
