@@ -1,6 +1,13 @@
-h3 {
+h3, p {
     margin: 0;
 }
+
+.parent-comp {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 
 .category-list {
     display: flex;

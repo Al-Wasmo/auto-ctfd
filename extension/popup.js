@@ -5,9 +5,10 @@
 let Cookie = {};
 let Challs = {};
 let Tab = undefined;
-let CTF_ORIGINE = "";
+let CTF_URL = undefined;
 const SERVER_ADDR = "http://127.0.0.1:5000";
 let ServerStatus = "?";
+let CTF_NAME = "";
 
 
 function chrome_getCurrTab() {
@@ -48,7 +49,7 @@ function render_Categories() {
 
 
 async function req_loadChalls() {
-    const res = await fetch(`${CTF_ORIGINE}/api/v1/challenges`, {
+    const res = await fetch(`${CTF_URL.origin}/api/v1/challenges`, {
         "headers": {
             "accept": "application/json",
             "accept-language": "en-US,en;q=0.9",
@@ -61,7 +62,7 @@ async function req_loadChalls() {
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin"
         },
-        "referrer": `${CTF_ORIGINE}/challenges`,
+        "referrer": `${CTF_URL.origin}/challenges`,
         "referrerPolicy": "strict-origin-when-cross-origin",
         "body": null,
         "method": "GET",
@@ -89,7 +90,7 @@ async function req_loadChalls() {
     return challs
 }
 async function req_getChallInfo(chall) {
-    let res = await fetch(`${CTF_ORIGINE}/api/v1/challenges/${chall.id}`, {
+    let res = await fetch(`${CTF_URL.origin}/api/v1/challenges/${chall.id}`, {
         "headers": {
             "accept": "application/json",
             "accept-language": "en-US,en;q=0.9",
@@ -102,7 +103,7 @@ async function req_getChallInfo(chall) {
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin"
         },
-        "referrer": `${CTF_ORIGINE}/challenges`,
+        "referrer": `${CTF_URL.origin}/challenges`,
         "referrerPolicy": "strict-origin-when-cross-origin",
         "body": null,
         "method": "GET",
@@ -135,7 +136,6 @@ async function host_takeScreenshotOfChall(challView) {
             target: { tabId: Tab.id },
             func: async (challView) => {
                 let base64Img;
-
 
 
                 const tmp = document.createElement("div");
@@ -183,27 +183,36 @@ async function host_takeScreenshotOfChall(challView) {
 }
 
 
-
-// document.getElementById("categories-download").addEventListener("click", async () => {
-//     let allChallsInfo = [];
-
-//     const categories = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map((elem) => elem.getAttribute("name"));
-//     for (let category of categories) {
-//         for (let chall of Challs[category]) {
-//             let info = await req_getChallInfo(chall);
-//             console.log(info.screenshot);
-//             allChallsInfo.push(info);
-//         }
-//     }
-
-// fetch("http://127.0.0.1:5000/save",{
-//     method: "post",
-//     body: JSON.stringify(allChallsInfo),
-// });
+async function loadTabInfo() {
+    if (!Tab || !CTF_URL) {
+        Tab = await chrome_getCurrTab();
+        CTF_URL = new URL(Tab.url);
+    }
+}
 
 
-// })
+async function downloadCategory() {
+    let selectedCategories = Array.from(document.querySelectorAll(".category-label-checkbox input")).filter(elem => elem.checked).map(elem => elem.getAttribute("name"));
+    let challsByCategory = {};
+    for (let category of selectedCategories) {
+        for (let chall of Challs[category]) {
+            let info = await req_getChallInfo(chall);
+            if(!Object.keys(challsByCategory).includes(category)) challsByCategory[category] = [];
+            challsByCategory[category].push(info);
+        }
+    }
 
+
+    fetch("http://127.0.0.1:5000/save",{
+        method: "post",
+        body: JSON.stringify({
+            challsByCategory: challsByCategory,
+            ctfName : document.querySelector("#ctf-name").value, 
+        }),
+    });
+
+
+}
 
 
 
@@ -213,26 +222,25 @@ const { useState, useEffect, useContext, createContext } = React;
 const AppContext = createContext();
 const AppProvider = ({ children }) => {
     const [serverStatus, setServerStatus] = useState("?");
+    const [ctfURL, setCtfURL] = useState(undefined);
+    
     const changeServerStatus = (status) => setServerStatus(status);
 
     // Return context provider using React.createElement
     return React.createElement(
         AppContext.Provider,
-        { value: { serverStatus, changeServerStatus } },
+        { value: { 
+            serverStatus, changeServerStatus, 
+            ctfURL, setCtfURL,
+        } },
         children
     );
 };
 
 
-async function loadTabInfo() {
-    if (!Tab || !CTF_ORIGINE) {
-        Tab = await chrome_getCurrTab();
-        CTF_ORIGINE = new URL(Tab.url).origin;
-    }
-}
 
 function ServerStatusComponent() {
-    const {serverStatus,changeServerStatus} = useContext(AppContext);
+    const { ctfURL, serverStatus, changeServerStatus } = useContext(AppContext);
 
     async function connectToServer() {
         ServerStatus = "?";
@@ -250,33 +258,31 @@ function ServerStatusComponent() {
         connectToServer();
     }, []);
 
-    return React.createElement("div", { class: "server-status" },
+    return React.createElement("div", { class: "server-status parent-comp" },
         React.createElement("h3", null, "Server"),
-        serverStatus == "?" ? React.createElement("div", { class: "server-status-response server-status-progress" }, React.createElement("p", null, "Checking server..."), React.createElement("progress")) : undefined,
-        serverStatus == "+" ? React.createElement("div", { class: "server-status-response server-status-connected" }, React.createElement("p", null, "Connected")) : undefined,
-        serverStatus == "-" ? React.createElement("div", { class: "server-status-response server-status-notConnected" },
-            React.createElement("p", null, "Failed to connect"),
-            React.createElement("button", { onClick: connectToServer }, "Retry"),
+        React.createElement("div", null,
+            serverStatus == "?" ? React.createElement("div", { class: "server-status-response server-status-progress" }, React.createElement("p", null, "Checking server..."), React.createElement("progress")) : undefined,
+            serverStatus == "+" ? React.createElement("div", { class: "server-status-response server-status-connected" }, React.createElement("p", null, "Connected")) : undefined,
+            serverStatus == "-" ? React.createElement("div", { class: "server-status-response server-status-notConnected" },
+                React.createElement("p", null, "Failed to connect"),
+                React.createElement("button", { onClick: connectToServer }, "Retry"),
 
-        ) : undefined,
+            ) : undefined,
+        ),
+        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "10px"},},
+            React.createElement("p", null, "name"),
+            ctfURL ? React.createElement("input", { type: "text", style: {width: "100%"}, defaultValue:  ctfURL.host, id: "ctf-name" }) : undefined,
+        ),
+
     );
 }
 
 function CategoryListComponent() {
-    async function downloadCategory() {
-        let selectedCategories = Array.from(document.querySelectorAll(".category-label-checkbox input")).filter(elem => elem.checked).map(elem => elem.getAttribute("name"));
-        let allChallsInfo = [];
-        for (let category of selectedCategories) {
-            for (let chall of Challs[category]) {
-                let info = await req_getChallInfo(chall);
-                allChallsInfo.push(info);
-            }
-        }
-        console.log(allChallsInfo);
-    }
 
     useEffect(async () => {
         await loadTabInfo();
+        setCtfURL(CTF_URL);
+
         Challs = await req_loadChalls();
         if (!Challs) {
             console.log("[ctfd-automtator] Error: failed to load challs");
@@ -285,10 +291,10 @@ function CategoryListComponent() {
         setRender((val) => !val);
     }, []);
 
-    const {serverStatus} = useContext(AppContext);
+    const { serverStatus,setCtfURL } = useContext(AppContext);
     const [render, setRender] = useState(false);
 
-    return React.createElement("div", { class: "category-list" },
+    return React.createElement("div", { class: "category-list parent-comp" },
         React.createElement("h3", null, "Categories"),
         Object.keys(Challs).length == 0 ? React.createElement("progress", null) : undefined,
         (() => {
@@ -296,31 +302,27 @@ function CategoryListComponent() {
             Object.keys(Challs).forEach((category, index) => {
                 let realCategory = category;
                 category = category || `unamed-${index}`;
-                elms.push(React.createElement("label", { key: category, class:"category-label-checkbox" }, 
-                    React.createElement("input", { type: "checkbox", name: realCategory, value: category }),  
-                    React.createElement("div", {class: "category-item"}, 
-                        React.createElement("p", null,category), 
-                        React.createElement("p", null,Challs[realCategory].length == 1 ? "1 chall" : `${Challs[realCategory].length} challs`), 
+                elms.push(React.createElement("label", { key: category, class: "category-label-checkbox" },
+                    React.createElement("input", { type: "checkbox", name: realCategory, value: category }),
+                    React.createElement("div", { class: "category-item" },
+                        React.createElement("p", null, category),
+                        React.createElement("p", null, Challs[realCategory].length == 1 ? "1 chall" : `${Challs[realCategory].length} challs`),
 
-                    ),  
-                    
-                    
+                    ),
+
+
                 ));
             });
             return elms;
         })(),
-        serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", {onClick: downloadCategory}, "Download") : undefined,
-        serverStatus == "-" ? React.createElement("p", {class: "server-status-response server-status-notConnected0"}, "Please connect to server") : undefined,
+        serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", { onClick: downloadCategory }, "Download") : undefined,
+        serverStatus == "-" ? React.createElement("p", { class: "server-status-response server-status-notConnected0" }, "Please connect to server") : undefined,
     );
 }
 
 
 function App() {
-    useEffect(async () => {
-        await loadTabInfo();
-    }, []);
-
-    return React.createElement("div", null,
+    return React.createElement("div", {class : 'parent-comp'},
         React.createElement(AppProvider, null,
             React.createElement(ServerStatusComponent),
             React.createElement(CategoryListComponent),
