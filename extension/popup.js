@@ -6,7 +6,7 @@ let Cookie = {};
 let Challs = {};
 let Tab = undefined;
 let CTF_URL = undefined;
-const SERVER_ADDR = "http://127.0.0.1:5000";
+let SERVER_ADDR = "http://127.0.0.1:5000";
 let ServerStatus = "?";
 let CTF_NAME = "";
 
@@ -141,6 +141,7 @@ async function req_getChallInfo(chall) {
 }
 
 
+
 async function host_takeScreenshotOfChall(challView) {
 
     return new Promise(
@@ -153,6 +154,7 @@ async function host_takeScreenshotOfChall(challView) {
                 const tmp = document.createElement("div");
                 tmp.style.position = "absolute";
                 tmp.style.left = "-9999px";
+                tmp.style.width = "700px";
                 tmp.id = "ctfd-automator-inserted";
                 tmp.innerHTML = challView;
 
@@ -232,15 +234,15 @@ const AppContext = createContext();
 const AppProvider = ({ children }) => {
     const [serverStatus, setServerStatus] = useState("?");
     const [ctfURL, setCtfURL] = useState(undefined);
+    const [serverAddr, setServerAddr] = useState(SERVER_ADDR);
     
-    const changeServerStatus = (status) => setServerStatus(status);
-
     // Return context provider using React.createElement
     return React.createElement(
         AppContext.Provider,
         { value: { 
-            serverStatus, changeServerStatus, 
+            serverStatus, setServerStatus, 
             ctfURL, setCtfURL,
+            serverAddr, setServerAddr,
         } },
         children
     );
@@ -249,19 +251,27 @@ const AppProvider = ({ children }) => {
 
 
 function ServerStatusComponent() {
-    const { ctfURL, serverStatus, changeServerStatus } = useContext(AppContext);
+    const { ctfURL, serverStatus, serverAddr,setServerStatus, setServerAddr } = useContext(AppContext);
 
     async function connectToServer() {
         ServerStatus = "?";
-        changeServerStatus(serverStatus);
+        setServerStatus(serverStatus);
         try {
             let res = await fetch(SERVER_ADDR);
             ServerStatus = res.status != 200 ? "-" : "+";;
         } catch (err) {
             ServerStatus = "-";
         }
-        changeServerStatus(ServerStatus);
+        setServerStatus(ServerStatus);
     }
+
+    function onChangeServerAddr(e) {
+        setServerAddr(e.nativeEvent.target.value);
+        SERVER_ADDR = e.nativeEvent.target.value;
+        connectToServer();
+    }
+
+    
 
     useEffect(() => {
         connectToServer();
@@ -278,10 +288,14 @@ function ServerStatusComponent() {
 
             ) : undefined,
         ),
-        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "10px"},},
+        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "14px"},},
             React.createElement("p", null, "name"),
             ctfURL ? React.createElement("input", { type: "text", style: {width: "100%"}, defaultValue:  ctfURL.host, id: "ctf-name" }) : undefined,
         ),
+        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "10px"},},
+            React.createElement("p", null, "server"),
+            ctfURL ? React.createElement("input", { type: "text", style: {width: "100%"}, defaultValue:  SERVER_ADDR, onChange: onChangeServerAddr }) : undefined,
+        ),        
 
     );
 }

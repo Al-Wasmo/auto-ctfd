@@ -1,3 +1,4 @@
 {
-    "ctf-dir" : "~/0ctfd"
+    "ctf-dir" : "~/0ctfd",
+    "sync-download": true 
 }

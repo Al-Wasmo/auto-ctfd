@@ -56,6 +56,7 @@ def save():
     with open("config.json", "r") as f:
         config = json.load(f)
     CTF_DIR = os.path.expanduser(config["ctf-dir"])  
+    
     DIR_PATH.append(CTF_DIR)
 
     data = json.loads(request.data)
@@ -74,21 +75,28 @@ def save():
 
 
     for category , challs in challsByCategory.items():
+        read_category_name = category
         category = category.replace(" ","_").lower()
 
         # if there is one category no need to create a dir for it (maybe i only care about pwn)
         if len(challsByCategory.keys()) > 1:
             # enter the category dir
             DIR_PATH.append(category)
+        
 
         os.makedirs('/'.join(DIR_PATH),exist_ok=True)   
     
         # sort by most solves
         challs.sort(key=lambda x: x["solves"],reverse=True)
         
+
+        with open('/'.join(DIR_PATH + ["all.json"]),"w") as f:
+            json.dump(challsByCategory[read_category_name],f)
+
         # copy the path to manage this chall dir only
-        DIR_PATH_COPY = DIR_PATH.copy()
         for chall in challs:
+            DIR_PATH_COPY = DIR_PATH.copy()
+    
             chall_name = str(chall['solves']) + '_' + chall["name"].replace(" ","_").lower()
             DIR_PATH_COPY.append(chall_name)
 
@@ -103,14 +111,28 @@ def save():
             with open('/'.join(DIR_PATH_COPY + ['README.md']),"w") as f:
                 f.write(readme)
 
-            for file in chall['files']:
-                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=False)
+            if config["sync-download"]: 
+                for file in chall['files']:
+                    # if the server blocked the download, wait and try again
+                    while True:
+                        try:
+                            downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
+                            if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
+                                downloader.start(blocking=config["sync-download"])
+                                break
+                        except Exception as e:
+                            print("ERROR",e)
+                            time.sleep(4)
+            else:
+                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
                 if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
-                    downloader.start(blocking=True)
+                    downloader.start(blocking=config["sync-download"])
+
 
         # exit the category dir
         DIR_PATH.pop()
             
+    print("DONE")
             
     return {"success" : True}
 
