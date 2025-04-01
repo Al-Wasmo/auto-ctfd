@@ -3,7 +3,9 @@
 ## Extension  
 Once you enter the CTF (which must use CTFd under the hood), click on the extension. It will check the **server status** and **load all the challenges**.  
 
-<center><img src="docs/extension.png" alt="extension" width="400"/> </center>
+<p align="center">
+    <img src="docs/extension.png" alt="extension" width="400"/> 
+</p>
 
 <br><br>
 
@@ -40,15 +42,23 @@ You can configure it a bit using the **config.json** file:
 The CTF directory will be named: `time - {the CTF name}`. The time is calculated using the formula `2147483647 - now()`. This will ensure that your latest CTF will be on top of the list. I did this because I'm in the process of working.  
 
 
-<center><img src="docs/vscode-files.png" alt="vscode files" width="400"/> </center>
+<p align="center">
+    <img src="docs/vscode-files.png" alt="vscode files" width="400"/> 
+</p>
 
 
 
 - We can see 3 types of files:  
     - `card.png`: Is the HTML challenge card  
-        - Example: ![card.png](docs/card.png)  
+        - Example:
+            <br>
+            <img src="docs/card.png" alt="card.png" width="400"/> 
+    <br>
     - `README.md`: A markdown file containing all the information about the challenge  
-        - Example: ![README](docs/README.png)  
+        - Example: 
+            <br>
+            <img src="docs/README.png" alt="README.png" width="400"/> 
+    <br>
     - The rest are the challenge files  
 
 
