@@ -7,9 +7,6 @@ import time
 from pySmartDL import SmartDL
 
 
-def rand_suffix(n=4):
-    return ''.join([chr(random.randint(ord('a'),ord('z'))) for _ in range(n)])
-
 def create_readme(chall):
     def files():
         if len(chall["files"]) == 0:
@@ -62,7 +59,7 @@ def save():
     DIR_PATH.append(CTF_DIR)
 
     data = json.loads(request.data)
-    ctf_name = data.get("ctfName","ctf" + rand_suffix(4))
+    ctf_name = data.get("ctfName","ctf")
 
     # possible race hehe, when making two requests at the same time 
 
@@ -107,9 +104,6 @@ def save():
                 f.write(readme)
 
             for file in chall['files']:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                }
                 downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=False)
                 if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
                     downloader.start(blocking=True)
