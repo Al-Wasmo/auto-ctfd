@@ -12,14 +12,18 @@ def rand_suffix(n=4):
 
 def create_readme(chall):
     def files():
+        if len(chall["files"]) == 0:
+            return "- `files`: None\n"
         # parse files, shape is {name , url}
-        out = ""
+        out = "- `files`: \n"
         for file in chall["files"]:
             out += f"\t- [{file['name']}]({file['url']})\n"
         return out
     def hints():
+        if len(chall["hints"]) == 0:
+            return "- `hints`: None\n"       
+        out = "- `hints`: \n"
         # parse hint, shape is {id, cost , content} 
-        out = ""
         for hint in chall["hints"]:
             out += f"\t- {hint['content']}\n"
         return out
@@ -37,10 +41,9 @@ Description
 Stats
 ---
 - `solves`: {chall["solves"]}
+- `max_attempts`: {chall["max_attempts"]}
 - `connection_info`: {chall["connection_info"]}
-- `files`: 
-{files()}
-- `hints`: 
+{files() }
 {hints()}
 """
 
@@ -78,6 +81,7 @@ def save():
 
         # if there is one category no need to create a dir for it (maybe i only care about pwn)
         if len(challsByCategory.keys()) > 1:
+            # enter the category dir
             DIR_PATH.append(category)
 
         os.makedirs('/'.join(DIR_PATH),exist_ok=True)   
@@ -103,9 +107,16 @@ def save():
                 f.write(readme)
 
             for file in chall['files']:
-                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]), progress_bar=False)
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                }
+                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=False)
                 if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
-                    downloader.start(blocking=False)
+                    downloader.start(blocking=True)
+
+        # exit the category dir
+        DIR_PATH.pop()
+            
             
     return {"success" : True}
 

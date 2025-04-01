@@ -132,6 +132,7 @@ async function req_getChallInfo(chall) {
         files: files,
         hints: resJson.hints,
         view: resJson.view,
+        max_attempts: resJson.max_attempts,
         screenshot: await host_takeScreenshotOfChall(resJson.view),
         ...chall
     };
@@ -220,7 +221,6 @@ async function downloadCategory() {
         }),
     });
 
-
 }
 
 
@@ -288,6 +288,12 @@ function ServerStatusComponent() {
 
 function CategoryListComponent() {
 
+    async function onClickDownload() {
+        setCollecting(true);
+        await downloadCategory();
+        setCollecting(false);
+    }
+
     useEffect(async () => {
         await loadTabInfo();
         setCtfURL(CTF_URL);
@@ -302,6 +308,7 @@ function CategoryListComponent() {
 
     const { serverStatus,setCtfURL } = useContext(AppContext);
     const [render, setRender] = useState(false);
+    const [collecting, setCollecting] = useState(false);
 
     return React.createElement("div", { class: "category-list parent-comp" },
         React.createElement("h3", null, "Categories"),
@@ -324,7 +331,12 @@ function CategoryListComponent() {
             });
             return elms;
         })(),
-        serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", { onClick: downloadCategory }, "Download") : undefined,
+
+        collecting ? 
+            React.createElement("div", {style : {display: "flex", alignItems: "center", justifyContent: "center", flexDirection : "column"}}, 
+                                        React.createElement("p", null , "collecting data"), React.createElement("progress")
+            ) :  
+            serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", { onClick: onClickDownload }, "Download") : undefined,
         serverStatus == "-" ? React.createElement("p", { class: "server-status-response server-status-notConnected0" }, "Please connect to server to download stuff") : undefined,
     );
 }
