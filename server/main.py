@@ -3,69 +3,121 @@ import json
 import base64
 import random
 import os
+import time
+from pySmartDL import SmartDL
+
 
 def rand_suffix(n=4):
     return ''.join([chr(random.randint(ord('a'),ord('z'))) for _ in range(n)])
 
 def create_readme(chall):
+    def files():
+        # parse files, shape is {name , url}
+        out = ""
+        for file in chall["files"]:
+            out += f"\t- [{file['name']}]({file['url']})\n"
+        return out
+    def hints():
+        # parse hint, shape is {id, cost , content} 
+        out = ""
+        for hint in chall["hints"]:
+            out += f"\t- {hint['content']}\n"
+        return out
+
     return f"""
 # {chall["name"]}
+Card
+---
+<center><img src="card.png" alt="card"/></center>
+
+Description 
+---
 {chall.get("desc","(Chall didnt provide any description)")}
 
-## Stats
-
-| Info     | Stats |
-| ---      | ---       |
-| solves | {chall["solves"]}         |
-| files     | {chall["files"]}        |
-| hints     | {chall["hints"]}        |
-| connection_info     | {chall["connection_info"]}        |
-
-
-## Card
-![card](card.png)
+Stats
+---
+- `solves`: {chall["solves"]}
+- `connection_info`: {chall["connection_info"]}
+- `files`: 
+{files()}
+- `hints`: 
+{hints()}
 """
 
 app = Flask(__name__)
 
 @app.route("/save",methods=["POST"])
-def save():
+def save():    
+    # used to manage the ctf path, i will join it later using '/' to create a valid path
+    DIR_PATH = []
+
+    # Read config. use the ctf-dir option 
+    config = {}
+    with open("config.json", "r") as f:
+        config = json.load(f)
+    CTF_DIR = os.path.expanduser(config["ctf-dir"])  
+    DIR_PATH.append(CTF_DIR)
+
     data = json.loads(request.data)
     ctf_name = data.get("ctfName","ctf" + rand_suffix(4))
-    if not os.path.exists(ctf_name):
-        os.makedirs(ctf_name)   
-    else:
-        ctf_name = ctf_name + '-' + rand_suffix(4)
-        os.makedirs(ctf_name)   
+
+    # possible race hehe, when making two requests at the same time 
+
+    # ensure that the latest ctf is on top by making the dir prefix a lesser number
+    ctf_name = str(2147483647 - int(time.time())).rjust(len("2147483647"),'0') + '-' + ctf_name
+    DIR_PATH.append(ctf_name)
+
 
 
     challsByCategory = data.get("challsByCategory",{})
+
+
+
     for category , challs in challsByCategory.items():
         category = category.replace(" ","_").lower()
 
+        # if there is one category no need to create a dir for it (maybe i only care about pwn)
+        if len(challsByCategory.keys()) > 1:
+            DIR_PATH.append(category)
 
-        os.makedirs('/'.join([ctf_name,category]),exist_ok=True)   
+        os.makedirs('/'.join(DIR_PATH),exist_ok=True)   
+    
+        # sort by most solves
+        challs.sort(key=lambda x: x["solves"],reverse=True)
+        
+        # copy the path to manage this chall dir only
+        DIR_PATH_COPY = DIR_PATH.copy()
         for chall in challs:
-            
-            chall_name = chall["name"].replace(" ","_").lower()
-            
+            chall_name = str(chall['solves']) + '_' + chall["name"].replace(" ","_").lower()
+            DIR_PATH_COPY.append(chall_name)
+
             # Save card
-            os.makedirs('/'.join([ctf_name,category,chall_name]),exist_ok=True)   
+            os.makedirs('/'.join(DIR_PATH_COPY),exist_ok=True)   
             img_bytes =  base64.b64decode(chall["screenshot"].split(",")[1])
-            with open('/'.join([ctf_name,category,chall_name,'card.png']),"wb") as f:
+            with open('/'.join(DIR_PATH_COPY + ['card.png']),"wb") as f:
                 f.write(img_bytes)
             
             # Save Readme
             readme = create_readme(chall)
-            with open('/'.join([ctf_name,category,chall_name,'README.md']),"w") as f:
+            with open('/'.join(DIR_PATH_COPY + ['README.md']),"w") as f:
                 f.write(readme)
 
+            for file in chall['files']:
+                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]), progress_bar=False)
+                if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
+                    downloader.start(blocking=False)
+            
     return {"success" : True}
 
 
 @app.route("/")
 def index():
     return "<h1>you are online</h1>"
+
+
+
+
+
 
 
 app.run(debug=True)

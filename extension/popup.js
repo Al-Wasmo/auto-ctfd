@@ -115,10 +115,21 @@ async function req_getChallInfo(chall) {
         return undefined;
     }
     resJson = resJson.data;
+
+    let files = [];
+    for(let file of resJson.files) {
+        let url = new URL(CTF_URL.origin + file);
+        let name = url.pathname.split("/").pop();
+        files.push({
+            name : name,
+            url : url.href,
+        })
+    }
+
     let info = {
         desc: resJson.description,
         connection_info: resJson.connection_info,
-        files: resJson.files,
+        files: files,
         hints: resJson.hints,
         view: resJson.view,
         screenshot: await host_takeScreenshotOfChall(resJson.view),
@@ -141,7 +152,6 @@ async function host_takeScreenshotOfChall(challView) {
                 const tmp = document.createElement("div");
                 tmp.style.position = "absolute";
                 tmp.style.left = "-9999px";
-                tmp.style.width = "640px";
                 tmp.id = "ctfd-automator-inserted";
                 tmp.innerHTML = challView;
 
@@ -152,7 +162,6 @@ async function host_takeScreenshotOfChall(challView) {
                     cloned.style.opacity = "1";
                     cloned.style.display = "block";
 
-                    cloned.classList.add("challenge-window-somerandomnumberidontknowyet");
                     cloned.style.position = "relative";
                     cloned.style.left = "-9999px";
                     cloned.appendChild(tmp);
@@ -316,7 +325,7 @@ function CategoryListComponent() {
             return elms;
         })(),
         serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", { onClick: downloadCategory }, "Download") : undefined,
-        serverStatus == "-" ? React.createElement("p", { class: "server-status-response server-status-notConnected0" }, "Please connect to server") : undefined,
+        serverStatus == "-" ? React.createElement("p", { class: "server-status-response server-status-notConnected0" }, "Please connect to server to download stuff") : undefined,
     );
 }
 
