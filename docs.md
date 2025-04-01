@@ -54,11 +54,13 @@ The CTF directory will be named: `time - {the CTF name}`. The time is calculated
             <br>
             <img src="docs/card.png" alt="card.png" width="400"/> 
     <br>
+
     - `README.md`: A markdown file containing all the information about the challenge  
         - Example: 
             <br>
             <img src="docs/README.png" alt="README.png" width="400"/> 
     <br>
+    
     - The rest are the challenge files  
 
 
