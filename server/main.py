@@ -1,97 +1,34 @@
 from flask import Flask, request, make_response
 import json
 import base64
-import random
 import os
 import time
 from pySmartDL import SmartDL
-
-
-def create_readme(chall):
-    def files():
-        if len(chall["files"]) == 0:
-            return "- `files`: None\n"
-        # parse files, shape is {name , url}
-        out = "- `files`: \n"
-        for file in chall["files"]:
-            out += f"\t- [{file['name']}]({file['url']})\n"
-        return out
-    def hints():
-        if len(chall["hints"]) == 0:
-            return "- `hints`: None\n"       
-        out = "- `hints`: \n"
-        # parse hint, shape is {id, cost , content} 
-        for hint in chall["hints"]:
-            out += f"\t- {hint['content']}\n"
-        return out
-
-    return f"""
-# {chall["name"]}
-Card
----
-<center><img src="card.png" alt="card"/></center>
-
-Description 
----
-{chall.get("desc","(Chall didnt provide any description)")}
-
-Stats
----
-- `solves`: {chall["solves"]}
-- `max_attempts`: {chall["max_attempts"]}
-- `connection_info`: {chall["connection_info"]}
-{files() }
-{hints()}
-"""
+import glob
+from utils import *
+import copy
 
 app = Flask(__name__)
 
-@app.route("/save",methods=["POST"])
-def save():    
-    # used to manage the ctf path, i will join it later using '/' to create a valid path
-    DIR_PATH = []
-
-    # Read config. use the ctf-dir option 
-    config = {}
-    with open("config.json", "r") as f:
-        config = json.load(f)
-    CTF_DIR = os.path.expanduser(config["ctf-dir"])  
-    
-    DIR_PATH.append(CTF_DIR)
-
-    data = json.loads(request.data)
-    ctf_name = data.get("ctfName","ctf")
-
-    # possible race hehe, when making two requests at the same time 
-
-    # ensure that the latest ctf is on top by making the dir prefix a lesser number
-    ctf_name = str(2147483647 - int(time.time())).rjust(len("2147483647"),'0') + '-' + ctf_name
-    DIR_PATH.append(ctf_name)
 
 
-
-    challsByCategory = data.get("challsByCategory",{})
-
-
-
+def saveCtfInfo(DIR_PATH,config,challsByCategory):
     for category , challs in challsByCategory.items():
-        read_category_name = category
+        real_category_name = category
         category = category.replace(" ","_").lower()
 
-        # if there is one category no need to create a dir for it (maybe i only care about pwn)
-        if len(challsByCategory.keys()) > 1:
-            # enter the category dir
-            DIR_PATH.append(category)
-        
-
+        DIR_PATH.append(category)
         os.makedirs('/'.join(DIR_PATH),exist_ok=True)   
     
         # sort by most solves
         challs.sort(key=lambda x: x["solves"],reverse=True)
-        
-
         with open('/'.join(DIR_PATH + ["all.json"]),"w") as f:
-            json.dump(challsByCategory[read_category_name],f)
+            # remove useless info
+            cpy = copy.deepcopy(challsByCategory[real_category_name])
+            for i in range(len(cpy)):
+                del cpy[i]["view"]
+                del cpy[i]["screenshot"]
+            json.dump(cpy,f)
 
         # copy the path to manage this chall dir only
         for chall in challs:
@@ -125,13 +62,59 @@ def save():
                             time.sleep(4)
             else:
                 downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
+                #TODO: this is not working 
                 if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
                     downloader.start(blocking=config["sync-download"])
 
 
         # exit the category dir
         DIR_PATH.pop()
-            
+       
+
+@app.route("/save",methods=["POST"])
+def save():    
+    # used to manage the ctf path, i will join it later using '/' to create a valid path
+    DIR_PATH = []
+
+    # Read config. use the ctf-dir option 
+    config = {}
+    with open("config.json", "r") as f:
+        config = json.load(f)
+    CTF_DIR = os.path.expanduser(config["ctf-dir"])
+    DIR_PATH.append(CTF_DIR)
+
+
+
+
+    
+
+
+
+    data = json.loads(request.data)
+    ctf_name = data.get("ctfName","")
+    assert len(ctf_name) != 0
+    challsByCategory = data["challsByCategory"]
+
+
+    dirs =  glob.glob('/'.join(DIR_PATH) + "/*")
+    striped_dirs = [file.split("-")[1] for file in dirs]
+    
+    # possible race hehe, when making two requests at the same time 
+    # ensure that the latest ctf is on top by making the dir prefix a lesser number
+    prefixed_ctf_name = str(2147483647 - int(time.time())).rjust(len("2147483647"),'0') + '-' + ctf_name
+
+    if ctf_name in striped_dirs:
+        dir_path = dirs[striped_dirs.index(ctf_name)]
+        DIR_PATH.append(prefixed_ctf_name)
+        os.rename(dir_path,'/'.join(DIR_PATH))
+    else:
+        DIR_PATH.append(prefixed_ctf_name)
+        os.makedirs('/'.join(DIR_PATH))
+
+    
+    saveCtfInfo(DIR_PATH,config,challsByCategory)
+
+    
     print("DONE")
             
     return {"success" : True}

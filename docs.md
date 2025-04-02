@@ -7,7 +7,7 @@ Once you enter the CTF (which must use CTFd under the hood), click on the extens
     <img src="docs/extension.png" alt="extension" width="400"/> 
 </p>
 
-<br><br>
+<br>
 
 ### Server Tab  
 - We can see that the server is **connected** because I'm running the Flask server in the background.  
