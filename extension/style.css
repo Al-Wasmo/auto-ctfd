@@ -19,8 +19,13 @@ h3, p {
     font-weight: bold;
     cursor: pointer;
 }
+.category-list progress {
+    align-self: center;
+}
 .category-label-checkbox {
     display: flex;
+    align-items: center;
+    width: 90%;
 }
 .category-item {
     display: flex;

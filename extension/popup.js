@@ -1,7 +1,3 @@
-// chrome.tabs.query({active: true,currentWindow: true},tabs => {
-// chrome.tabs.sendMessage(tabs[0].id,"URMOM")
-// });
-
 let Cookie = {};
 let Challs = {};
 let Tab = undefined;
@@ -33,43 +29,37 @@ async function chrome_getSessionCookie() {
 
 
 
-function render_Categories() {
-    let categoriesListElem = document.getElementById("categories-list");
-    categoriesListElem.innerHTML = "";
-    Object.keys(Challs).forEach((category, index) => {
-        let realCategory = category;
-        category = category || `unamed-${index}`;
-        let listItemElem = document.createElement("label");
-        listItemElem.innerHTML = `<input type="checkbox" name="${realCategory}" value="${category}"> ${category}`;
-        categoriesListElem.appendChild(listItemElem);
-        categoriesListElem.appendChild(document.createElement("br"));
-    });
-}
-
-
 
 async function req_loadChalls() {
-    const res = await fetch(`${CTF_URL.origin}/api/v1/challenges`, {
-        "headers": {
-            "accept": "application/json",
-            "accept-language": "en-US,en;q=0.9",
-            "content-type": "application/json",
-            "priority": "u=1, i",
-            "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Linux\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin"
-        },
-        "referrer": `${CTF_URL.origin}/challenges`,
-        "referrerPolicy": "strict-origin-when-cross-origin",
-        "body": null,
-        "method": "GET",
-        "mode": "cors",
-        "credentials": "include"
-    });
-    const resJson = (await res.json()).data;
+    let res = undefined;
+    let resJson = undefined;
+    try {
+        res = await fetch(`${CTF_URL.origin}/api/v1/challenges`, {
+            "headers": {
+                "accept": "application/json",
+                "accept-language": "en-US,en;q=0.9",
+                "content-type": "application/json",
+                "priority": "u=1, i",
+                "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": "\"Linux\"",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin"
+            },
+            "referrer": `${CTF_URL.origin}/challenges`,
+            "referrerPolicy": "strict-origin-when-cross-origin",
+            "body": null,
+            "method": "GET",
+            "mode": "cors",
+            "credentials": "include"
+        });
+        resJson = (await res.json()).data;
+    } catch (e) {
+        // failed to request info, maybe its not a ctfd/rctf site
+        return undefined;
+    }
+
     let challs = [];
     if (resJson) {
         // filter challs by category 
@@ -90,39 +80,47 @@ async function req_loadChalls() {
     return challs
 }
 async function req_getChallInfo(chall) {
-    let res = await fetch(`${CTF_URL.origin}/api/v1/challenges/${chall.id}`, {
-        "headers": {
-            "accept": "application/json",
-            "accept-language": "en-US,en;q=0.9",
-            "content-type": "application/json",
-            "priority": "u=1, i",
-            "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Linux\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin"
-        },
-        "referrer": `${CTF_URL.origin}/challenges`,
-        "referrerPolicy": "strict-origin-when-cross-origin",
-        "body": null,
-        "method": "GET",
-        "mode": "cors",
-        "credentials": "include"
-    });
-    let resJson = await res.json();
+    let res = undefined;
+    let resJson = undefined;
+    try {
+        res = await fetch(`${CTF_URL.origin}/api/v1/challenges/${chall.id}`, {
+            "headers": {
+                "accept": "application/json",
+                "accept-language": "en-US,en;q=0.9",
+                "content-type": "application/json",
+                "priority": "u=1, i",
+                "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": "\"Linux\"",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin"
+            },
+            "referrer": `${CTF_URL.origin}/challenges`,
+            "referrerPolicy": "strict-origin-when-cross-origin",
+            "body": null,
+            "method": "GET",
+            "mode": "cors",
+            "credentials": "include"
+        });
+        resJson = await res.json();
+    } catch (e) {
+        // failed to request info, maybe its not a ctfd/rctf site
+        return undefined;
+    }
+
     if (!resJson.success) {
         return undefined;
     }
     resJson = resJson.data;
 
     let files = [];
-    for(let file of resJson.files) {
+    for (let file of resJson.files) {
         let url = new URL(CTF_URL.origin + file);
         let name = url.pathname.split("/").pop();
         files.push({
-            name : name,
-            url : url.href,
+            name: name,
+            url: url.href,
         })
     }
 
@@ -201,25 +199,23 @@ async function loadTabInfo() {
         CTF_URL = new URL(Tab.url);
     }
 }
-
-
 async function downloadCategory() {
     let selectedCategories = Array.from(document.querySelectorAll(".category-label-checkbox input")).filter(elem => elem.checked).map(elem => elem.getAttribute("name"));
     let challsByCategory = {};
     for (let category of selectedCategories) {
         for (let chall of Challs[category]) {
             let info = await req_getChallInfo(chall);
-            if(!Object.keys(challsByCategory).includes(category)) challsByCategory[category] = [];
+            if (!Object.keys(challsByCategory).includes(category)) challsByCategory[category] = [];
             challsByCategory[category].push(info);
         }
     }
 
 
-    fetch("http://127.0.0.1:5000/save",{
+    fetch("http://127.0.0.1:5000/save", {
         method: "post",
         body: JSON.stringify({
             challsByCategory: challsByCategory,
-            ctfName : document.querySelector("#ctf-name").value, 
+            ctfName: document.querySelector("#ctf-name").value,
         }),
     });
 
@@ -235,15 +231,19 @@ const AppProvider = ({ children }) => {
     const [serverStatus, setServerStatus] = useState("?");
     const [ctfURL, setCtfURL] = useState(undefined);
     const [serverAddr, setServerAddr] = useState(SERVER_ADDR);
-    
+    const [validCTFStatus, setValidCTFStatus] = useState("?");
+
     // Return context provider using React.createElement
     return React.createElement(
         AppContext.Provider,
-        { value: { 
-            serverStatus, setServerStatus, 
-            ctfURL, setCtfURL,
-            serverAddr, setServerAddr,
-        } },
+        {
+            value: {
+                serverStatus, setServerStatus,
+                ctfURL, setCtfURL,
+                serverAddr, setServerAddr,
+                validCTFStatus, setValidCTFStatus,
+            }
+        },
         children
     );
 };
@@ -251,7 +251,7 @@ const AppProvider = ({ children }) => {
 
 
 function ServerStatusComponent() {
-    const { ctfURL, serverStatus, serverAddr,setServerStatus, setServerAddr } = useContext(AppContext);
+    const { ctfURL, serverStatus, serverAddr, setServerStatus, setServerAddr } = useContext(AppContext);
 
     async function connectToServer() {
         ServerStatus = "?";
@@ -271,7 +271,7 @@ function ServerStatusComponent() {
         connectToServer();
     }
 
-    
+
 
     useEffect(() => {
         connectToServer();
@@ -288,76 +288,112 @@ function ServerStatusComponent() {
 
             ) : undefined,
         ),
-        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "14px"},},
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "14px" }, },
             React.createElement("p", null, "name"),
-            ctfURL ? React.createElement("input", { type: "text", style: {width: "100%"}, defaultValue:  ctfURL.host, id: "ctf-name" }) : undefined,
+            ctfURL ? React.createElement("input", { type: "text", style: { width: "100%" }, defaultValue: ctfURL.host, id: "ctf-name" }) : undefined,
         ),
-        React.createElement("div", {style: {display: "flex", alignItems: "center", gap: "10px"},},
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, },
             React.createElement("p", null, "server"),
-            ctfURL ? React.createElement("input", { type: "text", style: {width: "100%"}, defaultValue:  SERVER_ADDR, onChange: onChangeServerAddr }) : undefined,
-        ),        
+            ctfURL ? React.createElement("input", { type: "text", style: { width: "100%" }, defaultValue: SERVER_ADDR, onChange: onChangeServerAddr }) : undefined,
+        ),
 
     );
 }
 
 function CategoryListComponent() {
-
     async function onClickDownload() {
         setCollecting(true);
         await downloadCategory();
         setCollecting(false);
     }
+    async function loadCategories() {
+        setValidCTFStatus("?");
+
+
+        Challs = await req_loadChalls();
+        if (!Challs) {
+            console.log("[auto-ctf] Error: failed to load challs, maybe not a ctfd/rctf site");
+            setValidCTFStatus("-");
+            return;
+        }
+        setValidCTFStatus("+");
+    }
 
     useEffect(async () => {
         await loadTabInfo();
         setCtfURL(CTF_URL);
-
-        Challs = await req_loadChalls();
-        if (!Challs) {
-            console.log("[ctfd-automtator] Error: failed to load challs");
-            return;
-        }
-        setRender((val) => !val);
+        await loadCategories();
     }, []);
 
-    const { serverStatus,setCtfURL } = useContext(AppContext);
+    const { serverStatus, setCtfURL, validCTFStatus, setValidCTFStatus } = useContext(AppContext);
     const [render, setRender] = useState(false);
     const [collecting, setCollecting] = useState(false);
 
+
+    function render_Categories() {
+        if (validCTFStatus === '-') {
+            return React.createElement(
+                "div",
+                { style: { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "10px" } },
+                React.createElement("p", { className: "server-status-response server-status-notConnected", style: { textAlign: "center" } }, "Site doesnt seem to be based on ctfd/rctf"),
+                React.createElement("button", { onClick: loadCategories, }, "Retry?"),
+            );
+        } else {
+
+
+            const categories = Object.keys(Challs || {});
+
+            return React.createElement(
+                "div",
+                    { style: { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "6px" } },
+                    categories.length === 0 && React.createElement("progress", null),
+
+                categories.map((category, index) => {
+                    let realCategory = category || `unamed-${index}`;
+
+                    return React.createElement(
+                        "label",
+                        { key: realCategory, className: "category-label-checkbox" },
+                        React.createElement("input", { type: "checkbox", name: realCategory, value: realCategory }),
+                        React.createElement(
+                            "div",
+                            { className: "category-item" },
+                            React.createElement("p", null, realCategory),
+                            React.createElement("p", null, Challs[realCategory]?.length === 1 ? "1 chall" : `${Challs[realCategory]?.length || 0} challs`)
+                        )
+                    );
+                }),
+
+                collecting &&
+                React.createElement(
+                    "div",
+                    { style: { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" } },
+                    React.createElement("p", null, "collecting data"),
+                    React.createElement("progress")
+                ),
+
+                serverStatus === "+" && categories.length > 0 &&
+                React.createElement("button", { onClick: onClickDownload, disabled: true }, "Download"),
+
+                serverStatus === "-" && categories.length > 0 &&
+                React.createElement("button", { onClick: onClickDownload, disabled: true }, "Download (connect to server first)"),
+            );
+        }
+
+    }
+
+
     return React.createElement("div", { class: "category-list parent-comp" },
         React.createElement("h3", null, "Categories"),
-        Object.keys(Challs).length == 0 ? React.createElement("progress", null) : undefined,
-        (() => {
-            let elms = [];
-            Object.keys(Challs).forEach((category, index) => {
-                let realCategory = category;
-                category = category || `unamed-${index}`;
-                elms.push(React.createElement("label", { key: category, class: "category-label-checkbox" },
-                    React.createElement("input", { type: "checkbox", name: realCategory, value: category }),
-                    React.createElement("div", { class: "category-item" },
-                        React.createElement("p", null, category),
-                        React.createElement("p", null, Challs[realCategory].length == 1 ? "1 chall" : `${Challs[realCategory].length} challs`),
-
-                    ),
+        render_Categories(),
 
 
-                ));
-            });
-            return elms;
-        })(),
-
-        collecting ? 
-            React.createElement("div", {style : {display: "flex", alignItems: "center", justifyContent: "center", flexDirection : "column"}}, 
-                                        React.createElement("p", null , "collecting data"), React.createElement("progress")
-            ) :  
-            serverStatus == "+" && Object.keys(Challs).length != 0 ? React.createElement("button", { onClick: onClickDownload }, "Download") : undefined,
-        serverStatus == "-" ? React.createElement("p", { class: "server-status-response server-status-notConnected0" }, "Please connect to server to download stuff") : undefined,
     );
 }
 
 
 function App() {
-    return React.createElement("div", {class : 'parent-comp'},
+    return React.createElement("div", { class: 'parent-comp' },
         React.createElement(AppProvider, null,
             React.createElement(ServerStatusComponent),
             React.createElement(CategoryListComponent),
