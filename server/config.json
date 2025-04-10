@@ -1,4 +1,6 @@
 {
     "ctf-dir" : "~/0ctfd",
-    "sync-download": true 
+    "max-download" : "15 * 1024 * 1024",
+    "sync-download": true
+
 }

@@ -1,5 +1,5 @@
 def readme_files(chall):
-    if len(chall["files"]) == 0:
+    if len(chall.get("files",[])) == 0:
         return "- `files`: None\n"
     # parse files, shape is {name , url}
     out = "- `files`: \n"
@@ -8,7 +8,7 @@ def readme_files(chall):
     return out
 
 def readme_hints(chall):
-    if len(chall["hints"]) == 0:
+    if len(chall.get("hints",[])) == 0:
         return "- `hints`: None\n"       
     out = "- `hints`: \n"
     # parse hint, shape is {id, cost , content} 
@@ -17,11 +17,11 @@ def readme_hints(chall):
     return out
 
 def create_readme(chall):
-    name = chall["name"]
-    desc = chall.get("desc", "(Chall didnt provide any description)")
-    solves = chall["solves"]
-    max_attempts = chall["max_attempts"]
-    connection_info = chall["connection_info"]
+    name = chall.get("name", "Unnamed Challenge")
+    desc = chall.get("desc", "(Chall didn't provide any description)")
+    solves = chall.get("solves", 0)
+    max_attempts = chall.get("max_attempts", "Unlimited")
+    connection_info = chall.get("connection_info", "No connection info provided")
 
     readme_content = f"# {name}\n"
     readme_content += "Card\n"

@@ -5,6 +5,7 @@ let CTF_URL = undefined;
 let SERVER_ADDR = "http://127.0.0.1:5000";
 let ServerStatus = "?";
 let CTF_NAME = "";
+let CTF_SITE = "ctfd";
 
 
 function chrome_getCurrTab() {
@@ -27,12 +28,29 @@ async function chrome_getSessionCookie() {
     })
 }
 
-
+function chome_getLocalStorage() {
+    return new Promise(resolve => {
+        chrome.scripting.executeScript({
+            target: { tabId: Tab.id },
+            func: () => {
+                return JSON.stringify(localStorage);
+            }
+        }, (results) => {
+            if (results && results[0] && results[0].result) {
+                resolve(JSON.parse(results[0].result))
+            } else {
+                resolve(undefined)
+            }
+        });
+    });
+}
 
 
 async function req_loadChalls() {
     let res = undefined;
     let resJson = undefined;
+    let ctfSite = "ctfd";
+
     try {
         res = await fetch(`${CTF_URL.origin}/api/v1/challenges`, {
             "headers": {
@@ -55,13 +73,42 @@ async function req_loadChalls() {
             "credentials": "include"
         });
         resJson = (await res.json()).data;
+        if (!resJson) {
+            throw undefined;
+        }
+
     } catch (e) {
-        // failed to request info, maybe its not a ctfd/rctf site
-        return undefined;
+        ctfSite = "rctf";
+        // failed to request info, maybe its rctf site
+        try {
+            const token = (await chome_getLocalStorage()).token;
+
+            res = await fetch(`${CTF_URL.origin}/api/v1/challs`, {
+                "headers": {
+                    "authorization": `Bearer ${token}`,
+                    "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "\"Linux\""
+                },
+                "referrer": `${CTF_URL.origin}/challs`,
+                "referrerPolicy": "strict-origin-when-cross-origin",
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+                "credentials": "include"
+            });
+            resJson = await res.json();
+        } catch (e) {
+            console.log(e);
+            return undefined;
+        }
     }
 
+
+    CTF_SITE = ctfSite;
+
     let challs = [];
-    if (resJson) {
+    if (ctfSite == "ctfd") {
         // filter challs by category 
         challs = resJson.reduce((byCategory, chall) => {
             if (!Object.keys(byCategory).includes(chall.category)) { byCategory[chall.category] = []; }
@@ -74,122 +121,194 @@ async function req_loadChalls() {
             return byCategory;
         }, {});
     } else {
-        return undefined;
+        resJson = resJson.data;
+        challs = resJson.reduce((byCategory, chall) => {
+            if (!Object.keys(byCategory).includes(chall.category)) { byCategory[chall.category] = []; }
+            byCategory[chall.category].push({
+                name: chall.name,
+                files: chall.files,
+                author: chall.author,
+                solves: chall.solves,
+                id: chall.id,
+                value: chall.points,
+                desc: chall.description,
+            });
+            return byCategory;
+        }, {});
     }
+
 
     return challs
 }
 async function req_getChallInfo(chall) {
-    let res = undefined;
-    let resJson = undefined;
-    try {
-        res = await fetch(`${CTF_URL.origin}/api/v1/challenges/${chall.id}`, {
-            "headers": {
-                "accept": "application/json",
-                "accept-language": "en-US,en;q=0.9",
-                "content-type": "application/json",
-                "priority": "u=1, i",
-                "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": "\"Linux\"",
-                "sec-fetch-dest": "empty",
-                "sec-fetch-mode": "cors",
-                "sec-fetch-site": "same-origin"
-            },
-            "referrer": `${CTF_URL.origin}/challenges`,
-            "referrerPolicy": "strict-origin-when-cross-origin",
-            "body": null,
-            "method": "GET",
-            "mode": "cors",
-            "credentials": "include"
-        });
-        resJson = await res.json();
-    } catch (e) {
-        // failed to request info, maybe its not a ctfd/rctf site
-        return undefined;
-    }
-
-    if (!resJson.success) {
-        return undefined;
-    }
-    resJson = resJson.data;
-
-    let files = [];
-    for (let file of resJson.files) {
-        let url = new URL(CTF_URL.origin + file);
-        let name = url.pathname.split("/").pop();
-        files.push({
-            name: name,
-            url: url.href,
-        })
-    }
 
     let info = {
-        desc: resJson.description,
-        connection_info: resJson.connection_info,
-        files: files,
-        hints: resJson.hints,
-        view: resJson.view,
-        max_attempts: resJson.max_attempts,
-        screenshot: await host_takeScreenshotOfChall(resJson.view),
-        ...chall
+        desc: undefined,
+        connection_info: undefined,
+        files: undefined,
+        hints: undefined,
+        view: undefined,
+        max_attempts: undefined,
+        screenshot: undefined,
     };
+
+    if (CTF_SITE == "ctfd") {
+
+        let res = undefined;
+        let resJson = undefined;
+
+
+        // try out the ctfd api first
+        try {
+            res = await fetch(`${CTF_URL.origin}/api/v1/challenges/${chall.id}`, {
+                "headers": {
+                    "accept": "application/json",
+                    "accept-language": "en-US,en;q=0.9",
+                    "content-type": "application/json",
+                    "priority": "u=1, i",
+                    "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Google Chrome\";v=\"134\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": "\"Linux\"",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin"
+                },
+                "referrer": `${CTF_URL.origin}/challenges`,
+                "referrerPolicy": "strict-origin-when-cross-origin",
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+                "credentials": "include"
+            });
+            resJson = await res.json();
+        } catch (e) {
+            return undefined;
+        }
+
+
+
+
+        if (!resJson.success) {
+            return undefined;
+        }
+        resJson = resJson.data;
+
+        let files = [];
+        for (let file of resJson.files) {
+            let url = new URL(CTF_URL.origin + file);
+            let name = url.pathname.split("/").pop();
+            files.push({
+                name: name,
+                url: url.href,
+            })
+        }
+
+        info = {
+            desc: resJson.description,
+            connection_info: resJson.connection_info,
+            files: files,
+            hints: resJson.hints,
+            view: resJson.view,
+            max_attempts: resJson.max_attempts,
+            screenshot: await host_takeScreenshotOfChall(resJson.view),
+            ...chall
+        };
+
+    } else {
+        info = {
+            screenshot: await host_takeScreenshotOfChall(chall),
+            ...chall,
+        };
+    }
+
 
     return info;
 }
 
 
 
-async function host_takeScreenshotOfChall(challView) {
-
-    return new Promise(
-        async (resolve) => chrome.scripting.executeScript({
-            target: { tabId: Tab.id },
-            func: async (challView) => {
-                let base64Img;
-
-
-                const tmp = document.createElement("div");
-                tmp.style.position = "absolute";
-                tmp.style.left = "-9999px";
-                tmp.style.width = "700px";
-                tmp.id = "ctfd-automator-inserted";
-                tmp.innerHTML = challView;
-
-                if (document.getElementById("challenge-window")) {
-
-                    let cloned = document.getElementById("challenge-window").cloneNode(true);
-
-                    cloned.style.opacity = "1";
-                    cloned.style.display = "block";
-
-                    cloned.style.position = "relative";
-                    cloned.style.left = "-9999px";
-                    cloned.appendChild(tmp);
+async function host_takeScreenshotOfChall(challViewOrName) {
+    if (CTF_SITE == "ctfd") {
+        return new Promise(
+            async (resolve) => chrome.scripting.executeScript({
+                target: { tabId: Tab.id },
+                func: async (challViewOrName) => {
+                    let base64Img;
 
 
+                    const tmp = document.createElement("div");
+                    tmp.style.position = "absolute";
+                    tmp.style.left = "-9999px";
+                    tmp.style.width = "700px";
+                    tmp.id = "ctfd-automator-inserted";
+                    tmp.innerHTML = challViewOrName;
 
-                    document.body.appendChild(cloned);
-                    let canvas = await html2canvas(document.getElementById("ctfd-automator-inserted").children[0]);
-                    base64Img = canvas.toDataURL("image/png");
-                    document.body.removeChild(cloned);
+                    if (document.getElementById("challenge-window")) {
 
-                } else {
-                    document.body.appendChild(tmp);
-                    let canvas = await html2canvas(tmp.children[0]);
-                    base64Img = canvas.toDataURL("image/png");
-                    document.body.removeChild(tmp);
+                        let cloned = document.getElementById("challenge-window").cloneNode(true);
+
+                        cloned.style.opacity = "1";
+                        cloned.style.display = "block";
+
+                        cloned.style.position = "relative";
+                        cloned.style.left = "-9999px";
+                        cloned.appendChild(tmp);
+
+
+
+                        document.body.appendChild(cloned);
+                        let canvas = await html2canvas(document.getElementById("ctfd-automator-inserted").children[0]);
+                        base64Img = canvas.toDataURL("image/png");
+                        document.body.removeChild(cloned);
+
+                    } else {
+                        document.body.appendChild(tmp);
+                        let canvas = await html2canvas(tmp.children[0]);
+                        base64Img = canvas.toDataURL("image/png");
+                        document.body.removeChild(tmp);
+                    }
+
+
+                    return base64Img;
+                },
+                args: [challViewOrName]
+            }, (results) => {
+                if (results && results.length > 0) {
+                    resolve(results[0].result);
                 }
+            }));
+    } else {
+        return new Promise(
+            async (resolve) => chrome.scripting.executeScript({
+                target: { tabId: Tab.id },
+                func: async (challViewOrName) => {
+                    let base64Img;
 
 
-                return base64Img;
-            },
-            args: [challView]
-        }, (results) => {
-            if (results && results.length > 0) {
-                resolve(results[0].result);
-            }
-        }));
+
+
+                    const elements = document.querySelectorAll('.frame__body'); 
+
+                    for (const el of elements) {
+                      if (el.querySelector(".frame__title").textContent.includes(challViewOrName.name)) {
+                        const parent = el.parentElement;
+                        let canvas = await html2canvas(parent);
+                        base64Img = canvas.toDataURL("image/png");                        
+                        return base64Img;
+                      }
+                    }                    
+
+
+                    return "";
+                },
+                args: [challViewOrName]
+            }, (results) => {
+                if (results && results.length > 0) {
+                    resolve(results[0].result);
+                }
+            }));
+    }
+
 }
 
 
@@ -200,18 +319,20 @@ async function loadTabInfo() {
     }
 }
 async function downloadCategory() {
+
+
     let selectedCategories = Array.from(document.querySelectorAll(".category-label-checkbox input")).filter(elem => elem.checked).map(elem => elem.getAttribute("name"));
     let challsByCategory = {};
     for (let category of selectedCategories) {
         for (let chall of Challs[category]) {
-            let info = await req_getChallInfo(chall);
             if (!Object.keys(challsByCategory).includes(category)) challsByCategory[category] = [];
+            let info = await req_getChallInfo(chall);
             challsByCategory[category].push(info);
         }
+        break;
     }
 
-
-    fetch("http://127.0.0.1:5000/save", {
+    fetch(`${SERVER_ADDR}/save`, {
         method: "post",
         body: JSON.stringify({
             challsByCategory: challsByCategory,
@@ -345,8 +466,8 @@ function CategoryListComponent() {
 
             return React.createElement(
                 "div",
-                    { style: { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "6px" } },
-                    categories.length === 0 && React.createElement("progress", null),
+                { style: { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "6px" } },
+                categories.length === 0 && React.createElement("progress", null),
 
                 categories.map((category, index) => {
                     let realCategory = category || `unamed-${index}`;
@@ -373,7 +494,7 @@ function CategoryListComponent() {
                 ),
 
                 serverStatus === "+" && categories.length > 0 &&
-                React.createElement("button", { onClick: onClickDownload, disabled: true }, "Download"),
+                React.createElement("button", { onClick: onClickDownload, disabled: false }, "Download"),
 
                 serverStatus === "-" && categories.length > 0 &&
                 React.createElement("button", { onClick: onClickDownload, disabled: true }, "Download (connect to server first)"),
@@ -404,3 +525,4 @@ function App() {
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+

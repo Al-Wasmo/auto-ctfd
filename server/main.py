@@ -11,6 +11,14 @@ import copy
 app = Flask(__name__)
 
 
+def get_download_size(url):
+    download = SmartDL(url, "/tmp/a", progress_bar=False)
+    download.start(blocking=False)
+    time.sleep(2)
+    size_bytes = download.get_final_filesize()
+    download.stop()
+    return size_bytes
+
 
 def saveCtfInfo(DIR_PATH,config,challsByCategory):
     for category , challs in challsByCategory.items():
@@ -26,12 +34,15 @@ def saveCtfInfo(DIR_PATH,config,challsByCategory):
             # remove useless info
             cpy = copy.deepcopy(challsByCategory[real_category_name])
             for i in range(len(cpy)):
-                del cpy[i]["view"]
-                del cpy[i]["screenshot"]
+                if  'view' in list(cpy[i].keys()):
+                    del cpy[i]["view"]
+                if 'screenshot' in list(cpy[i].keys()):
+                    del cpy[i]["screenshot"]
             json.dump(cpy,f)
 
         # copy the path to manage this chall dir only
         for chall in challs:
+            print(chall['name'])
             DIR_PATH_COPY = DIR_PATH.copy()
     
             chall_name = str(chall['solves']) + '_' + chall["name"].replace(" ","_").lower()
@@ -48,23 +59,36 @@ def saveCtfInfo(DIR_PATH,config,challsByCategory):
             with open('/'.join(DIR_PATH_COPY + ['README.md']),"w") as f:
                 f.write(readme)
 
+
+            #TODO: not smart using eval in python. can lead to bad stuff hhhhhhhhhhhhhhhhh
             if config["sync-download"]: 
                 for file in chall['files']:
                     # if the server blocked the download, wait and try again
                     while True:
                         try:
                             downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
-                            if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
-                                downloader.start(blocking=config["sync-download"])
+                            downloader.start(blocking=False)
+                            time.sleep(1)
+                            size = downloader.get_final_filesize()
+                            if size < eval(config.get("max-download",'15 * 1024 * 1024')): # if size is smaller then 15Mb download it
+                                if config["sync-download"]:
+                                    downloader.wait()
+                                break
+                            else:
+                                downloader.stop()
+                                print("ERROR: file size too big, not downloading. size = ",size)
                                 break
                         except Exception as e:
                             print("ERROR",e)
                             time.sleep(4)
-            else:
-                downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
-                #TODO: this is not working 
-                if downloader.get_dl_size() < 15 * 1024 * 1024: # if size is smaller then 15Mb download it
-                    downloader.start(blocking=config["sync-download"])
+            # else:
+            #     downloader = SmartDL(file['url'], '/'.join(DIR_PATH_COPY + [file["name"]]),progress_bar=True)
+            #     size = get_download_size(file['url']) 
+            #     if size < eval(config.get("max-download",'15 * 1024 * 1024')): # if size is smaller then 15Mb download it
+            #         downloader.start(blocking=config["sync-download"])
+            #     else:
+            #         print("ERROR: file size too big, not downloading. size = ",size)
+
 
 
         # exit the category dir
@@ -111,7 +135,6 @@ def save():
         DIR_PATH.append(prefixed_ctf_name)
         os.makedirs('/'.join(DIR_PATH))
 
-    
     saveCtfInfo(DIR_PATH,config,challsByCategory)
 
     
