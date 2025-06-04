@@ -121,8 +121,12 @@ def save():
 
 
     dirs =  glob.glob('/'.join(DIR_PATH) + "/*")
-    striped_dirs = [file.split("-")[1] for file in dirs]
+    striped_dirs = []
+    for file in dirs:
+        if len(file.split("-")) > 0:
+            striped_dirs.append(file.split("-")[1])
     
+
     # possible race hehe, when making two requests at the same time 
     # ensure that the latest ctf is on top by making the dir prefix a lesser number
     prefixed_ctf_name = str(2147483647 - int(time.time())).rjust(len("2147483647"),'0') + '-' + ctf_name
